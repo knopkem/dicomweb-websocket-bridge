@@ -1,173 +1,76 @@
-import config from "config";
-import { v4 as uuidv4 } from "uuid";
-import SocketIOStream from "@wearemothership/socket.io-stream";
-import { Server } from "socket.io";
-import path from "path";
-import fastify from "fastify";
-import jsonwebtoken from "jsonwebtoken";
+import config from 'config';
+import { Server } from 'socket.io';
+import path from 'path';
+import fastify from 'fastify';
+import jsonwebtoken from 'jsonwebtoken';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
 import fastifySensible from '@fastify/sensible';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCompress from '@fastify/compress';
-import utils from "./utils";
+import fastifyAutoload from '@fastify/autoload';
+import { getLogger } from './utils';
 
-declare module "fastify" {
+declare module 'fastify' {
   // eslint-disable-next-line no-unused-vars
   interface FastifyRequest {
-    websocketToken: string
-    multipart: Buffer
+    websocketToken: string;
+    multipart: Buffer;
   }
 }
 
-interface QueryParams {
-  [key: string]: string;
-}
-
-const httpPort = config.get("webserverPort") as number;
-const wsPort = config.get("websocketPort") as number;
-const defaultToken = config.get("websocketToken") as string;
+const httpPort = config.get('webserverPort') as number;
+const wsPort = config.get('websocketPort') as number;
+const defaultToken = config.get('websocketToken') as string;
 const io = new Server(wsPort);
 
 const server = fastify({ logger: false, bodyLimit: 20971520 });
 
 server.register(fastifyStatic, {
-  root: path.join(__dirname, "../public"),
+  root: path.join(__dirname, '../public'),
 });
 
 server.register(fastifyCors, {});
-
 server.register(fastifySensible);
-
 server.register(fastifyHelmet, { contentSecurityPolicy: false });
-
 server.register(fastifyCompress, { global: true });
 
-server.decorateRequest("multipart", "");
-server.addContentTypeParser("multipart/related", { parseAs: "buffer" }, async (request, payload) => {
+server.register(fastifyAutoload, {
+  dir: path.join(__dirname, 'routes'),
+});
+
+server.register(fastifyAutoload, {
+  dir: path.join(__dirname, 'routes'),
+  options: { prefix: '/viewer' },
+});
+
+server.decorateRequest('multipart', '');
+server.addContentTypeParser('multipart/related', { parseAs: 'buffer' }, async (request, payload) => {
   request.multipart = payload;
 });
 
-const logger = utils.getLogger();
+const logger = getLogger();
 
-const connectedClients = {};
-
-const emitToWsClient = (reply, level, query, token): Promise<void> => new Promise((resolve) => {
-  const client = connectedClients[token];
-  if (!client || client.handshake.auth.token !== token) {
-    const msg = "no ws client connected, cannot emit";
-    logger.error(msg);
-    reply.send(msg);
-    resolve();
-  }
-  else {
-    const uuid = uuidv4();
-    client.once(uuid, (data) => {
-      if (data instanceof Error) {
-        reply.status(500);
-      }
-      reply.send(data);
-      resolve();
-    });
-
-    client.emit("qido-request", { level, query, uuid });
-  }
-});
-
-const emitToWadoWsClient = (reply, query, token): Promise<void> => new Promise((resolve) => {
-  const client = connectedClients[token];
-  if (!client || client.handshake.auth.token !== token) {
-    const msg = "no ws client connected, cannot emit";
-    logger.error(msg);
-    reply.send(msg);
-    resolve();
-  }
-  else {
-    const uuid = uuidv4();
-    SocketIOStream(client, {}).on(uuid, (stream, headers) => {
-      const { contentType } = headers;
-      reply.status(200);
-      reply.header("content-type", contentType);
-      const bufferData: Buffer[] = [];
-      stream.on("data", (data) => {
-        bufferData.push(data);
-      });
-      stream.on("end", () => {
-        const b = Buffer.concat(bufferData);
-        reply.send(b);
-        resolve();
-      });
-    });
-    client.on(uuid, (resp) => {
-      if (resp instanceof Error) {
-        reply.status(500).send(resp);
-      }
-    });
-    client.emit("wado-request", { query, uuid });
-  }
-});
-
-const emitToStowRsClient = (reply, body, token, type): Promise<void> => new Promise((resolve) => {
-  const client = connectedClients[token];
-  if (!client || client.handshake.auth.token !== token) {
-    const msg = "no ws client connected, cannot emit";
-    logger.error(msg);
-    reply.send(msg);
-    resolve();
-  }
-  else {
-    const uuid = uuidv4();
-    const stream = SocketIOStream.createStream({});
-    SocketIOStream(client, {}).emit("stow-request", stream, { contentType: type, uuid });
-    client.once(uuid, (data) => {
-      if (data instanceof Error) {
-        reply.status(500);
-      }
-      reply.send(data);
-      resolve();
-    });
-    logger.info(body.length, token, type);
-    let offset = 0;
-    const chunkSize = 512 * 1024; // 512kb
-    const writeBuffer = () => {
-      let ok = true;
-      do {
-        const b = Buffer.alloc(chunkSize);
-        body.copy(b, 0, offset, offset + chunkSize);
-        ok = stream.write(b);
-        offset += chunkSize;
-      } while (offset < body.length && ok);
-      if (offset < body.length) {
-        stream.once("drain", writeBuffer);
-      }
-      else {
-        stream.end();
-      }
-    };
-    writeBuffer();
-
-    client.emit("stow-request", { type, body, uuid });
-  }
-});
+global.connectedClients = {};
 
 // log exceptions
-process.on("uncaughtException", async (err) => {
-  await logger.error("uncaught exception received:");
+process.on('uncaughtException', async (err) => {
+  await logger.error('uncaught exception received:');
   await logger.error(err.stack);
 });
 
 //------------------------------------------------------------------
 
-process.on("SIGINT", async () => {
-  await logger.info("shutting down web server...");
+process.on('SIGINT', async () => {
+  await logger.info('shutting down web server...');
   io.close();
   server.close().then(
     async () => {
-      await logger.info("webserver shutdown successfully");
+      await logger.info('webserver shutdown successfully');
     },
     (err) => {
-      logger.error("webserver shutdown failed", err);
-    },
+      logger.error('webserver shutdown failed', err);
+    }
   );
   process.exit(1);
 });
@@ -175,297 +78,44 @@ process.on("SIGINT", async () => {
 //------------------------------------------------------------------
 
 // incoming websocket connections are registered here
-io.on("connection", (socket) => {
+io.on('connection', (socket) => {
   const origin = socket.conn.remoteAddress;
   logger.info(`websocket client connected from origin: ${origin}`);
   const { token } = socket.handshake.auth;
-  logger.info("Added socket to clients", token);
-  connectedClients[token] = socket;
+  logger.info('Added socket to clients', token);
+  global.connectedClients[token] = socket;
 
-  socket.on("disconnect", (reason) => {
+  socket.on('disconnect', (reason) => {
     logger.info(`websocket client disconnected, origin: ${origin}, reason: ${reason}`);
-    delete connectedClients[token];
+    delete global.connectedClients[token];
   });
 });
 
-server.decorateRequest("websocketToken", "");
+server.decorateRequest('websocketToken', '');
 
-server.addHook("onRequest", async (request) => {
+server.addHook('onRequest', async (request) => {
   const { headers } = request;
-  const token = headers.authorization?.replace(/bearer /ig, "");
+  const token = headers.authorization?.replace(/bearer /gi, '');
   if (token) {
     try {
-      const secret = config.get("jwtPacsSecret") as string;
-      const issuer = config.get("jwtPacsIssuer") as string;
+      const secret = config.get('jwtPacsSecret') as string;
+      const issuer = config.get('jwtPacsIssuer') as string;
       const { websocketToken } = jsonwebtoken.verify(token, secret, { issuer });
-      logger.info(websocketToken, " ", request.url, " ", request.method);
+      logger.info(websocketToken, ' ', request.url, ' ', request.method);
       request.websocketToken = websocketToken || defaultToken;
-    }
-    catch (e) {
+    } catch (e) {
       request.websocketToken = defaultToken;
     }
-  }
-  else {
+  } else {
     request.websocketToken = defaultToken;
   }
 });
 
 //------------------------------------------------------------------
 
-server.get("/viewer/rs/studies", (req, reply) => (
-  emitToWsClient(reply, "STUDY", req.query, req.websocketToken)
-));
+logger.info('starting...');
 
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/rendered', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.dataFormat = "rendered";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/pixeldata', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.dataFormat = "pixeldata";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/thumbnail', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.dataFormat = "thumbnail";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/metadata", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  return emitToWsClient(reply, "STUDY", query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  return emitToWsClient(reply, "SERIES", query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/rendered', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.dataFormat = "rendered";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/pixeldata', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.dataFormat = "pixeldata";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/thumbnail', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.dataFormat = "thumbnail";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/metadata", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  return emitToWsClient(reply, "SERIES", query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  return emitToWsClient(reply, "IMAGE", query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string, sopInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances/:sopInstanceUid", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.SOPInstanceUID = req.params.sopInstanceUid;
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string, sopInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances/:sopInstanceUid/rendered', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.SOPInstanceUID = req.params.sopInstanceUid;
-  query.dataFormat = "rendered";
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string, sopInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances/:sopInstanceUid/pixeldata', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.SOPInstanceUID = req.params.sopInstanceUid;
-  query.dataFormat = "pixeldata"
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string, sopInstanceUid: string }
-}>('/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances/:sopInstanceUid/thumbnail', async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.SOPInstanceUID = req.params.sopInstanceUid;
-  query.dataFormat = "thumbnail"
-  return emitToWadoWsClient(reply, req.query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.get<{
-  Querystring: QueryParams
-  Params: { studyInstanceUid: string, seriesInstanceUid: string, sopInstanceUid: string }
-}>("/viewer/rs/studies/:studyInstanceUid/series/:seriesInstanceUid/instances/:sopInstanceUid/metadata", async (req, reply) => {
-  const { query } = req;
-  query.StudyInstanceUID = req.params.studyInstanceUid;
-  query.SeriesInstanceUID = req.params.seriesInstanceUid;
-  query.SOPInstanceUID = req.params.sopInstanceUid;
-  return emitToWsClient(reply, "IMAGE", query, req.websocketToken);
-});
-
-//------------------------------------------------------------------
-
-server.put("/viewer/rs/studies", async (req, reply) => {
-  const { headers, multipart, websocketToken } = req;
-  const type = headers["content-type"];
-  return emitToStowRsClient(reply, multipart, websocketToken, type);
-});
-
-//------------------------------------------------------------------
-
-server.get("/viewer/wadouri", (req, reply): Promise<void> => new Promise((resolve) => {
-  const uuid = uuidv4();
-
-  const client = connectedClients[req.websocketToken];
-  if (!client || client.handshake.auth !== req.websocketToken) {
-    client.once(uuid, (data) => {
-      reply.header("Content-Type", data.contentType);
-      reply.send(data.buffer);
-      resolve();
-    });
-
-    const { query } = req;
-    client.emit("wadouri-request", { query, uuid });
-  }
-  else {
-    const msg = "no ws client connected, cannot emit";
-    logger.error(msg);
-    reply.send(msg);
-  }
-}));
-
-//------------------------------------------------------------------
-
-logger.info("starting...");
-
-server.listen({ port: httpPort, host: "0.0.0.0" }, async (err, address) => {
+server.listen({ port: httpPort, host: '0.0.0.0' }, async (err, address) => {
   if (err) {
     await logger.error(err, address);
     process.exit(1);
