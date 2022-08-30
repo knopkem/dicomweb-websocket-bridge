@@ -41,33 +41,26 @@ export const emitToQidoWsClient = (level, query, token): Promise<any> =>
     }
   });
 
-export const emitToWadoWsClient = (reply, query, token): Promise<void> =>
-  new Promise((resolve) => {
+export const emitToWadoWsClient = (query, token): Promise<any> =>
+  new Promise((resolve, reject) => {
     const client = global.connectedClients[token];
     if (!client || client.handshake.auth.token !== token) {
-      const msg = 'no ws client connected, cannot emit';
-      logger.error(msg);
-      reply.send(msg);
-      resolve();
+      reject('no ws client connected, cannot emit');
     } else {
       const uuid = uuidv4();
-      SocketIOStream(client, {}).on(uuid, (stream, headers) => {
-        const { contentType } = headers;
-        reply.status(200);
-        reply.header('content-type', contentType);
+      SocketIOStream(client, {}).on(uuid, (stream) => {
         const bufferData: Buffer[] = [];
         stream.on('data', (data) => {
           bufferData.push(data);
         });
         stream.on('end', () => {
           const b = Buffer.concat(bufferData);
-          reply.send(b);
-          resolve();
+          resolve(b);
         });
       });
       client.on(uuid, (resp) => {
         if (resp instanceof Error) {
-          reply.send(500);
+          reject(resp);
         }
       });
       client.emit('wado-request', { query, uuid });

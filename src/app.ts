@@ -7,7 +7,6 @@ import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
 import fastifySensible from '@fastify/sensible';
 import fastifyHelmet from '@fastify/helmet';
-import fastifyCompress from '@fastify/compress';
 import fastifyAutoload from '@fastify/autoload';
 import { getLogger } from './utils';
 
@@ -33,7 +32,6 @@ server.register(fastifyStatic, {
 server.register(fastifyCors, {});
 server.register(fastifySensible);
 server.register(fastifyHelmet, { contentSecurityPolicy: false });
-server.register(fastifyCompress, { global: true });
 
 server.register(fastifyAutoload, {
   dir: path.join(__dirname, 'routes'),

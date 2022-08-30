@@ -10,9 +10,13 @@ interface QueryParams {
 
 module.exports = function (server: FastifyInstance, opts: unknown, done: () => void) {
   server.get<{}>('/rs/studies', async (req, reply) => {
-    const resp = await emitToQidoWsClient('STUDY', req.query, req.websocketToken);
-    if (resp) reply.send(resp);
-    else reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('STUDY', req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -23,8 +27,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
   }>('/rs/studies/:studyInstanceUid/metadata', async (req, reply) => {
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
-    const resp = await emitToQidoWsClient('SERIES', query, req.websocketToken);
-    resp ? reply.send(resp) : reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('SERIES', query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -35,8 +44,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
   }>('/rs/studies/:studyInstanceUid/series', async (req, reply) => {
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
-    const resp = await emitToQidoWsClient('SERIES', query, req.websocketToken);
-    resp ? reply.send(resp) : reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('SERIES', query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -48,8 +62,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
-    const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
-    resp ? reply.send(resp) : reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -61,8 +80,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
-    const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
-    resp ? reply.send(resp) : reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -75,8 +99,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.SOPInstanceUID = req.params.sopInstanceUid;
-    const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
-    resp ? reply.send(resp) : reply.send(500);
+    try {
+      const resp = await emitToQidoWsClient('IMAGE', query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -87,7 +116,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
   }>('/rs/studies/:studyInstanceUid', async (req, reply) => {
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -99,7 +134,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.dataFormat = 'rendered';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -111,7 +152,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.dataFormat = 'pixeldata';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -123,7 +170,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.dataFormat = 'thumbnail';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -135,7 +188,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -148,7 +207,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.dataFormat = 'rendered';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -161,7 +226,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.dataFormat = 'pixeldata';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -174,7 +245,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.dataFormat = 'thumbnail';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -187,7 +264,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.SOPInstanceUID = req.params.sopInstanceUid;
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -201,7 +284,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.SOPInstanceUID = req.params.sopInstanceUid;
     query.dataFormat = 'rendered';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -215,7 +304,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.SOPInstanceUID = req.params.sopInstanceUid;
     query.dataFormat = 'pixeldata';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------
@@ -229,7 +324,13 @@ module.exports = function (server: FastifyInstance, opts: unknown, done: () => v
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
     query.SOPInstanceUID = req.params.sopInstanceUid;
     query.dataFormat = 'thumbnail';
-    return await emitToWadoWsClient(reply, req.query, req.websocketToken);
+    try {
+      const resp = await emitToWadoWsClient(req.query, req.websocketToken);
+      reply.send(resp);
+    } catch (error) {
+      logger.error(error);
+      reply.send(500);
+    }
   });
 
   //------------------------------------------------------------------

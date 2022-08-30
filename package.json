@@ -1,6 +1,6 @@
 {
   "name": "dicomweb-websocket-bridge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Redirect dicomweb traffic over websockets to a local PACS server",
   "scripts": {
     "start": "ts-node src/app.ts"
@@ -26,7 +26,6 @@
   "homepage": "https://github.com/knopkem/dicomweb-websocket-bridge#readme",
   "dependencies": {
     "@fastify/autoload": "^5.2.0",
-    "@fastify/compress": "^6.1.1",
     "@fastify/cors": "^8.1.0",
     "@fastify/helmet": "^9.1.0",
     "@fastify/sensible": "^5.1.1",
@@ -40,7 +39,6 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "@fastify/compress": "^6.0.0",
     "@fastify/cors": "^8.0.0",
     "@fastify/helmet": "^9.1.0",
     "@fastify/sensible": "^5.0.0",
